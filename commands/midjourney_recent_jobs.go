@@ -1,7 +1,9 @@
 package commands
 
 import (
-	"github.com/jimeh/mj2n/midjourney"
+	"time"
+
+	"github.com/jimeh/go-midjourney"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +20,8 @@ func NewMidjourneyRecentJobs(mc *midjourney.Client) (*cobra.Command, error) {
 	cmd.Flags().StringP("type", "t", "", "type of jobs to list")
 	cmd.Flags().StringP("order", "o", "new", "either \"new\" or \"oldest\"")
 	cmd.Flags().StringP("user-id", "u", "", "user ID to list jobs for")
-	cmd.Flags().StringP("page", "p", "", "page to fetch")
+	cmd.Flags().IntP("page", "p", 0, "page to fetch")
+	cmd.Flags().StringP("prompt", "s", "", "prompt text to search for")
 	cmd.Flags().Bool("dedupe", true, "dedupe results")
 
 	return cmd, nil
@@ -44,6 +47,9 @@ func midjourneyRecentJobsRunE(mc *midjourney.Client) runEFunc {
 		if v, err := fs.GetInt("page"); err == nil && v != 0 {
 			q.Page = v
 		}
+		if v, err := fs.GetString("prompt"); err == nil && v != "" {
+			q.Prompt = v
+		}
 		if v, err := fs.GetBool("dedupe"); err == nil {
 			q.Dedupe = v
 		}
@@ -59,7 +65,7 @@ func midjourneyRecentJobsRunE(mc *midjourney.Client) runEFunc {
 				ID:             j.ID,
 				Status:         string(j.CurrentStatus),
 				Type:           string(j.Type),
-				EnqueueTime:    j.EnqueueTime,
+				EnqueueTime:    j.EnqueueTime.Time,
 				Prompt:         j.Prompt,
 				ImagePaths:     j.ImagePaths,
 				IsPublished:    j.IsPublished,
@@ -76,15 +82,15 @@ func midjourneyRecentJobsRunE(mc *midjourney.Client) runEFunc {
 }
 
 type MidjourneyJob struct {
-	ID             string   `json:"id,omitempty" yaml:"id,omitempty"`
-	Status         string   `json:"current_status,omitempty" yaml:"current_status,omitempty"`
-	Type           string   `json:"type,omitempty" yaml:"type,omitempty"`
-	EnqueueTime    string   `json:"enqueue_time,omitempty" yaml:"enqueue_time,omitempty"`
-	Prompt         string   `json:"prompt,omitempty" yaml:"prompt,omitempty"`
-	ImagePaths     []string `json:"image_paths,omitempty" yaml:"image_paths,omitempty"`
-	IsPublished    bool     `json:"is_published,omitempty" yaml:"is_published,omitempty"`
-	UserID         string   `json:"user_id,omitempty" yaml:"user_id,omitempty"`
-	Username       string   `json:"username,omitempty" yaml:"username,omitempty"`
-	FullCommand    string   `json:"full_command,omitempty" yaml:"full_command,omitempty"`
-	ReferenceJobID string   `json:"reference_job_id,omitempty" yaml:"reference_job_id,omitempty"`
+	ID             string    `json:"id,omitempty" yaml:"id,omitempty"`
+	Status         string    `json:"current_status,omitempty" yaml:"current_status,omitempty"`
+	Type           string    `json:"type,omitempty" yaml:"type,omitempty"`
+	EnqueueTime    time.Time `json:"enqueue_time,omitempty" yaml:"enqueue_time,omitempty"`
+	Prompt         string    `json:"prompt,omitempty" yaml:"prompt,omitempty"`
+	ImagePaths     []string  `json:"image_paths,omitempty" yaml:"image_paths,omitempty"`
+	IsPublished    bool      `json:"is_published,omitempty" yaml:"is_published,omitempty"`
+	UserID         string    `json:"user_id,omitempty" yaml:"user_id,omitempty"`
+	Username       string    `json:"username,omitempty" yaml:"username,omitempty"`
+	FullCommand    string    `json:"full_command,omitempty" yaml:"full_command,omitempty"`
+	ReferenceJobID string    `json:"reference_job_id,omitempty" yaml:"reference_job_id,omitempty"`
 }

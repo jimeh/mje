@@ -7,11 +7,21 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jimeh/mj2n/commands"
+	"github.com/jimeh/mje/commands"
+)
+
+var (
+	version = ""
+	commit  = ""
+	date    = ""
 )
 
 func main() {
-	cmd, err := commands.NewMJ2N()
+	cmd, err := commands.New(commands.Info{
+		Version: version,
+		Commit:  commit,
+		Date:    date,
+	})
 	if err != nil {
 		fatal(err)
 	}

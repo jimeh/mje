@@ -1,10 +1,11 @@
 package commands
 
 import (
+	"fmt"
 	"io"
 	"os"
 
-	"github.com/jimeh/mj2n/midjourney"
+	"github.com/jimeh/go-midjourney"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -12,27 +13,43 @@ import (
 
 type runEFunc func(cmd *cobra.Command, _ []string) error
 
-func NewMJ2N() (*cobra.Command, error) {
-	mc, err := midjourney.New(midjourney.WithUserAgent("mj2n/0.0.1-dev"))
+type Info struct {
+	Version string
+	Commit  string
+	Date    string
+}
+
+func New(info Info) (*cobra.Command, error) {
+	if info.Version == "" {
+		info.Version = "0.0.0-dev"
+	}
+
+	mc, err := midjourney.New(midjourney.WithUserAgent("mje/" + info.Version))
 	if err != nil {
 		return nil, err
 	}
 
 	cmd := &cobra.Command{
-		Use:               "mj2n",
-		Short:             "MidJourney to Notion importer",
+		Use:               "mje",
+		Short:             "MidJourney exporter",
+		Version:           info.Version,
 		PersistentPreRunE: persistentPreRunE(mc),
 	}
 
-	cmd.PersistentFlags().StringP(
-		"log-level", "l", "info",
+	cmd.PersistentFlags().String(
+		"log-level", "info",
 		"one of: trace, debug, info, warn, error, fatal, panic",
 	)
-	cmd.PersistentFlags().StringP(
-		"mj-token", "m", "", "MidJourney API token",
+	cmd.PersistentFlags().String(
+		"log-format", "plain",
+		"one of: plain, json",
 	)
 	cmd.PersistentFlags().String(
-		"mj-api-url", midjourney.DefaultAPIURL.String(), "MidJourney API URL",
+		"token", "", "MidJourney token",
+	)
+	cmd.PersistentFlags().String(
+		"api-url", midjourney.DefaultAPIURL.String(),
+		"MidJourney API URL",
 	)
 
 	midjourneyCmd, err := NewMidjourney(mc)
@@ -66,13 +83,13 @@ func setupMidJourney(cmd *cobra.Command, mc *midjourney.Client) error {
 		midjourney.WithLogger(log.Logger),
 	}
 
-	if f := cmd.Flag("mj-token"); f.Changed {
+	if f := cmd.Flag("token"); f != nil && f.Changed {
 		opts = append(opts, midjourney.WithAuthToken(f.Value.String()))
 	} else if v := os.Getenv("MIDJOURNEY_TOKEN"); v != "" {
 		opts = append(opts, midjourney.WithAuthToken(v))
 	}
 
-	apiURL := flagString(cmd, "mj-api-url")
+	apiURL := flagString(cmd, "api-url")
 	if apiURL == "" {
 		apiURL = os.Getenv("MIDJOURNEY_API_URL")
 	}
@@ -85,10 +102,15 @@ func setupMidJourney(cmd *cobra.Command, mc *midjourney.Client) error {
 
 func setupZerolog(cmd *cobra.Command) error {
 	var levelStr string
-	if v := os.Getenv("MJ2N_DEBUG"); v != "" {
+	var logFormat string
+
+	if v := os.Getenv("MJE_DEBUG"); v != "" {
 		levelStr = "debug"
-	} else if v := os.Getenv("MJ2N_LOG_LEVEL"); v != "" {
+	} else if v := os.Getenv("MJE_LOG_LEVEL"); v != "" {
 		levelStr = v
+	}
+	if v := os.Getenv("MJE_LOG_FORMAT"); v != "" {
+		logFormat = v
 	}
 
 	var out io.Writer = os.Stderr
@@ -99,26 +121,32 @@ func setupZerolog(cmd *cobra.Command) error {
 		if fl != nil && (fl.Changed || levelStr == "") {
 			levelStr = fl.Value.String()
 		}
+
+		fl = cmd.Flag("log-format")
+		if fl != nil && (fl.Changed || logFormat == "") {
+			logFormat = fl.Value.String()
+		}
 	}
 
 	if levelStr == "" {
 		levelStr = "info"
 	}
-
 	level, err := zerolog.ParseLevel(levelStr)
 	if err != nil {
 		return err
 	}
-
 	zerolog.SetGlobalLevel(level)
-	zerolog.TimeFieldFormat = ""
 
-	output := zerolog.ConsoleWriter{Out: out}
-	output.FormatTimestamp = func(i interface{}) string {
-		return ""
+	switch logFormat {
+	case "plain":
+		output := zerolog.ConsoleWriter{Out: out}
+		output.FormatTimestamp = func(i interface{}) string { return "" }
+		log.Logger = zerolog.New(output).With().Logger()
+	case "json":
+		log.Logger = zerolog.New(out).With().Timestamp().Logger()
+	default:
+		return fmt.Errorf("unknown log-format: %s", logFormat)
 	}
-
-	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
 	return nil
 }

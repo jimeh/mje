@@ -34,7 +34,7 @@ func render(w io.Writer, format string, v interface{}) error {
 		return err
 	}
 
-	return renderYAML(w, v)
+	return renderJSON(w, v)
 }
 
 func renderYAML(w io.Writer, v interface{}) error {
