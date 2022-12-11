@@ -1,4 +1,4 @@
-package commands
+package render
 
 import (
 	"encoding"
@@ -8,13 +8,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func render(w io.Writer, format string, v interface{}) error {
+func Render(w io.Writer, format string, v any) error {
 	if format == "yaml" || format == "yml" {
-		return renderYAML(w, v)
+		return YAML(w, v)
 	}
 
 	if format == "json" {
-		return renderJSON(w, v)
+		return JSON(w, v)
 	}
 
 	if wt, ok := v.(io.WriterTo); ok {
@@ -34,17 +34,17 @@ func render(w io.Writer, format string, v interface{}) error {
 		return err
 	}
 
-	return renderJSON(w, v)
+	return JSON(w, v)
 }
 
-func renderYAML(w io.Writer, v interface{}) error {
+func YAML(w io.Writer, v interface{}) error {
 	enc := yaml.NewEncoder(w)
 	enc.SetIndent(2)
 
 	return enc.Encode(v)
 }
 
-func renderJSON(w io.Writer, v interface{}) error {
+func JSON(w io.Writer, v interface{}) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 

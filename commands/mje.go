@@ -6,12 +6,12 @@ import (
 	"os"
 
 	"github.com/jimeh/go-midjourney"
+	mjcmds "github.com/jimeh/mje/commands/midjourney"
+	"github.com/jimeh/mje/commands/shared"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
-
-type runEFunc func(cmd *cobra.Command, _ []string) error
 
 type Info struct {
 	Version string
@@ -52,7 +52,7 @@ func New(info Info) (*cobra.Command, error) {
 		"MidJourney API URL",
 	)
 
-	midjourneyCmd, err := NewMidjourney(mc)
+	midjourneyCmd, err := mjcmds.New(mc)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func New(info Info) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func persistentPreRunE(mc *midjourney.Client) runEFunc {
+func persistentPreRunE(mc *midjourney.Client) shared.RunEFunc {
 	return func(cmd *cobra.Command, _ []string) error {
 		err := setupZerolog(cmd)
 		if err != nil {
@@ -89,7 +89,7 @@ func setupMidJourney(cmd *cobra.Command, mc *midjourney.Client) error {
 		opts = append(opts, midjourney.WithAuthToken(v))
 	}
 
-	apiURL := flagString(cmd, "api-url")
+	apiURL := shared.FlagString(cmd, "api-url")
 	if apiURL == "" {
 		apiURL = os.Getenv("MIDJOURNEY_API_URL")
 	}
@@ -141,22 +141,12 @@ func setupZerolog(cmd *cobra.Command) error {
 	case "plain":
 		output := zerolog.ConsoleWriter{Out: out}
 		output.FormatTimestamp = func(i interface{}) string { return "" }
-		log.Logger = zerolog.New(output).With().Logger()
+		log.Logger = zerolog.New(output).Level(level).With().Logger()
 	case "json":
-		log.Logger = zerolog.New(out).With().Timestamp().Logger()
+		log.Logger = zerolog.New(out).Level(level)
 	default:
 		return fmt.Errorf("unknown log-format: %s", logFormat)
 	}
 
 	return nil
-}
-
-func flagString(cmd *cobra.Command, name string) string {
-	var r string
-
-	if f := cmd.Flag(name); f != nil {
-		r = f.Value.String()
-	}
-
-	return r
 }

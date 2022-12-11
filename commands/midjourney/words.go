@@ -1,18 +1,25 @@
-package commands
+package midjourney
 
 import (
 	"sort"
 
 	"github.com/jimeh/go-midjourney"
+	"github.com/jimeh/mje/commands/render"
+	"github.com/jimeh/mje/commands/shared"
 	"github.com/spf13/cobra"
 )
 
-func NewMidjourneyWords(mc *midjourney.Client) (*cobra.Command, error) {
+type Word struct {
+	Word     string `json:"word"`
+	ImageURL string `json:"image_url"`
+}
+
+func NewWords(mc *midjourney.Client) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:     "words",
 		Aliases: []string{"w"},
 		Short:   "Get dictionary words",
-		RunE:    midjourneyWordsRunE(mc),
+		RunE:    wordsRunE(mc),
 	}
 
 	cmd.Flags().StringP("format", "f", "", "output format (yaml or json)")
@@ -24,7 +31,7 @@ func NewMidjourneyWords(mc *midjourney.Client) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func midjourneyWordsRunE(mc *midjourney.Client) runEFunc {
+func wordsRunE(mc *midjourney.Client) shared.RunEFunc {
 	return func(cmd *cobra.Command, _ []string) error {
 		fs := cmd.Flags()
 		q := &midjourney.WordsQuery{}
@@ -47,24 +54,19 @@ func midjourneyWordsRunE(mc *midjourney.Client) runEFunc {
 			return err
 		}
 
-		r := []*MidjourneyWord{}
+		r := []*Word{}
 		for _, w := range words {
-			r = append(r, &MidjourneyWord{
+			r = append(r, &Word{
 				Word:     w.Word,
 				ImageURL: w.ImageURL(),
 			})
 		}
 
-		format := flagString(cmd, "format")
+		format := shared.FlagString(cmd, "format")
 		sort.SliceStable(r, func(i, j int) bool {
 			return r[i].Word < r[j].Word
 		})
 
-		return render(cmd.OutOrStdout(), format, r)
+		return render.Render(cmd.OutOrStdout(), format, r)
 	}
-}
-
-type MidjourneyWord struct {
-	Word     string `json:"word"`
-	ImageURL string `json:"image_url"`
 }
