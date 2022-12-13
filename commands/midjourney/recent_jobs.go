@@ -1,6 +1,7 @@
 package midjourney
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jimeh/go-midjourney"
@@ -40,6 +41,7 @@ func NewRecentJobs(mc *midjourney.Client) (*cobra.Command, error) {
 
 	cmd.Flags().StringP("format", "f", "", "output format (yaml or json)")
 	cmd.Flags().IntP("amount", "a", 50, "amount of jobs to list")
+	cmd.Flags().Bool("fetch-all-jobs", false, "fetch all jobs")
 	cmd.Flags().StringP("type", "t", "", "type of jobs to list")
 	cmd.Flags().StringP("order", "o", "new", "either \"new\" or \"oldest\"")
 	cmd.Flags().StringP("user-id", "u", "", "user ID to list jobs for")
@@ -83,32 +85,55 @@ func recentJobsRunE(mc *midjourney.Client) shared.RunEFunc {
 			q.Dedupe = v
 		}
 
-		rj, err := mc.RecentJobs(cmd.Context(), q)
-		if err != nil {
-			return err
+		fetchAllJobs := false
+		var rj *midjourney.RecentJobs
+
+		if v, err := fs.GetBool("fetch-all-jobs"); err == nil {
+			if fetchAllJobs && q.UserID == "" {
+				return fmt.Errorf("fetch-all-jobs only valid when fetching recent jobs of --user-id")
+			}
+			fetchAllJobs = v
+		}
+
+		rjs := []*midjourney.RecentJobs{}
+		totalJobs := 0
+
+		for hasMoreJobs := true; hasMoreJobs; hasMoreJobs = fetchAllJobs && (rj == nil || len(rj.Jobs) >= q.Amount) {
+			var err error
+			rj, err = mc.RecentJobs(cmd.Context(), q)
+			if err != nil {
+				return err
+			}
+			totalJobs += len(rj.Jobs)
+			q.Page++
+
+			rjs = append(rjs, rj)
 		}
 
 		r := []*Job{}
-		for _, j := range rj.Jobs {
-			r = append(r, &Job{
-				ID:          j.ID,
-				Status:      string(j.CurrentStatus),
-				Type:        string(j.Type),
-				EnqueueTime: j.EnqueueTime.Time,
-				Prompt:      j.Prompt,
-				ImagePaths:  j.ImagePaths,
-				ThumbnailURLs: &ThumbnailURLs{
-					Small:  j.ThumbnailURL(midjourney.ThumbnailSizeSmall),
-					Medium: j.ThumbnailURL(midjourney.ThumbnailSizeMedium),
-					Large:  j.ThumbnailURL(midjourney.ThumbnailSizeLarge),
-				},
-				IsPublished:    j.IsPublished,
-				UserID:         j.UserID,
-				Username:       j.Username,
-				FullCommand:    j.FullCommand,
-				ReferenceJobID: j.ReferenceJobID,
-			})
+		for _, rj = range rjs {
+			for _, j := range rj.Jobs {
+				r = append(r, &Job{
+					ID:          j.ID,
+					Status:      string(j.CurrentStatus),
+					Type:        string(j.Type),
+					EnqueueTime: j.EnqueueTime.Time,
+					Prompt:      j.Prompt,
+					ImagePaths:  j.ImagePaths,
+					ThumbnailURLs: &ThumbnailURLs{
+						Small:  j.ThumbnailURL(midjourney.ThumbnailSizeSmall),
+						Medium: j.ThumbnailURL(midjourney.ThumbnailSizeMedium),
+						Large:  j.ThumbnailURL(midjourney.ThumbnailSizeLarge),
+					},
+					IsPublished:    j.IsPublished,
+					UserID:         j.UserID,
+					Username:       j.Username,
+					FullCommand:    j.FullCommand,
+					ReferenceJobID: j.ReferenceJobID,
+				})
+			}
 		}
+
 		format := shared.FlagString(cmd, "format")
 
 		return render.Render(cmd.OutOrStdout(), format, r)

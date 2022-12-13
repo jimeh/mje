@@ -25,10 +25,16 @@ func New(mc *midjourney.Client) (*cobra.Command, error) {
 		return nil, err
 	}
 
+	backupJobsCmd, err := NewBackupJobs(mc)
+	if err != nil {
+		return nil, err
+	}
+
 	cmd.AddCommand(
 		collectionsCmd,
 		recentJobsCmd,
 		wordsCmd,
+		backupJobsCmd,
 	)
 
 	return cmd, nil

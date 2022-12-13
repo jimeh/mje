@@ -30,7 +30,7 @@ SHELL := env \
 #
 
 # Default target
-.DEFAULT_GOAL := test
+.DEFAULT_GOAL := build
 
 #
 # Tools
@@ -71,7 +71,7 @@ $(BINARY): $(SOURCES)
 		-X main.date=$(shell date +%Y-%m-%dT%T%z)"
 
 .PHONY: build
-build: $(BINARY)
+build: test $(BINARY)
 
 #
 # Development

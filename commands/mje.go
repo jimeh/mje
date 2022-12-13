@@ -150,3 +150,23 @@ func setupZerolog(cmd *cobra.Command) error {
 
 	return nil
 }
+
+func flagString(cmd *cobra.Command, name string) string {
+	var r string
+
+	if f := cmd.Flag(name); f != nil {
+		r = f.Value.String()
+	}
+
+	return r
+}
+
+func flagBool(cmd *cobra.Command, name string) bool {
+	var r bool
+
+	if f, err := cmd.Flags().GetBool(name); err != nil {
+		r = f
+	}
+
+	return r
+}

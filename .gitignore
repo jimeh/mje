@@ -1,3 +1,5 @@
 .env*
 bin/*
 mje
+/backup-jobs
+.DS_Store
